@@ -13,19 +13,47 @@ use or redistribute.
 - `scrape_hasgaha.py` — the scraper (crawl, download, list-tags)
 - `tags.json` — full ID ↔ name mapping for the gallery's ~230 tags
 - `requirements.txt` — Python deps (`requests`, `beautifulsoup4`)
+- `setup.sh` — one-shot venv + deps for macOS / Linux
 - `ATTRIBUTION.md` — required credit text
 - `manifest.json` — generated; metadata for every scraped image
 - `images/` — generated; downloaded files, organized by game folder
 
-## Setup
+## Setup (macOS)
+
+macOS ships with `python3` (10.15+). One command:
 
 ```bash
 cd gaming-screenshots
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+bash setup.sh
+source .venv/bin/activate
 ```
 
-## Usage
+If you don't have `python3`, install it via [python.org](https://www.python.org/downloads/macos/)
+or `brew install python`.
+
+## The headline recipe
+
+Download every Star Citizen image (the master `Star Citizen` tag plus every
+tag whose name starts with `SC`):
+
+```bash
+python scrape_hasgaha.py download --tag "Star Citizen" --tag-prefix "SC"
+```
+
+That single invocation:
+1. Crawls the gallery (or reuses an existing `manifest.json`).
+2. Selects the `Star Citizen` tag (id=2) **plus all 210 `SC ...` tags**
+   (ships, stations, alpha versions, IAE day-by-day, etc.).
+3. Filters with **OR** semantics — an image kept if it matches **any** of the
+   selected tags.
+4. Writes manifest metadata for everything kept.
+5. Downloads full-res files to `images/<game>/<filename>`, skipping anything
+   already on disk.
+
+The prefix match is case-sensitive, so it picks up `SC ...` but not the
+unrelated lowercase tags `screenshot` / `science fiction`.
+
+## Other usage
 
 ### List tags
 
@@ -41,22 +69,21 @@ python scrape_hasgaha.py list-tags "SC Aegis"
 python scrape_hasgaha.py crawl
 ```
 
-This walks `?page_number_0=1..N` (currently 32 pages, ~1,500 images) and
-records every image's full-resolution URL, alt text, title, and the game
-folder parsed from the URL.
+Walks `?page_number_0=1..N` (~32 pages, ~1,500 images) and records every
+image's full-resolution URL, alt text, title, and game folder.
 
-### Crawl a single tag (server-side filter via the gallery's AJAX endpoint)
+### Crawl with tag filters (server-side via the gallery's AJAX endpoint)
 
 ```bash
 python scrape_hasgaha.py crawl --tag "Cyberpunk 2077"
-python scrape_hasgaha.py crawl --tag-id 74          # "favorite"
-python scrape_hasgaha.py crawl --tag-id 31          # "4k"
+python scrape_hasgaha.py crawl --tag-id 74              # "favorite"
+python scrape_hasgaha.py crawl --tag "Star Citizen" --tag-prefix "SC"
+python scrape_hasgaha.py crawl --tag "Hob,Limbo,ABZU"   # comma-separated
 ```
 
-`--tag` is matched against `tags.json` (exact, then unique substring).
-`--tag-id` skips the lookup. The script POSTs to the BWG plugin's
-`bwg_frontend_data` action with the chosen tag ID and walks pagination from
-the server's response.
+`--tag` and `--tag-id` are repeatable (and accept comma-separated values).
+`--tag-prefix` is repeatable too. Multiple selections are OR'd in a single
+AJAX request.
 
 ### Crawl everything and filter client-side (no AJAX)
 
@@ -73,50 +100,37 @@ Client-side filters match against alt text, title, and URL path.
 ### Download images
 
 `download` re-uses an existing `manifest.json` (or crawls first), filters,
-then pulls full-resolution files into `images/<game>/<filename>`:
+then pulls files into `images/<game>/<filename>`:
 
 ```bash
-# Download everything in the manifest (~1500 files, several GB)
-python scrape_hasgaha.py download --skip-filter
-
-# Just RDR2
-python scrape_hasgaha.py download --game RDR2
-
-# Just images tagged "favorite" via the site's tag system
-python scrape_hasgaha.py download --tag-id 74
-
-# Test with 5 files first
-python scrape_hasgaha.py download --tag "Cyberpunk 2077" --limit 5
-
-# Force a fresh crawl before downloading
-python scrape_hasgaha.py download --tag "SC Carrack" --refresh
+python scrape_hasgaha.py download --skip-filter                       # everything (~1500 files, several GB)
+python scrape_hasgaha.py download --game RDR2                         # one game
+python scrape_hasgaha.py download --tag-id 74                         # "favorite"
+python scrape_hasgaha.py download --tag "Cyberpunk 2077" --limit 5    # smoke test
+python scrape_hasgaha.py download --tag "SC Carrack" --refresh        # re-crawl first
 ```
 
-Re-running the download skips files that already exist; pass `--overwrite` to
-force re-download.
+Re-running skips files that already exist; pass `--overwrite` to force
+re-download.
 
 ## Notes on the two filter modes
 
-The site uses the WordPress "Photo Gallery" plugin (BWG). It exposes two
-viable scraping paths:
+The site uses the WordPress "Photo Gallery" plugin (BWG). Two viable paths:
 
-1. **Server-rendered pagination** (`?page_number_0=N`) — reliable; returns
-   plain HTML you can parse. Used by the default `crawl` and by
-   `--client-filter`.
-2. **AJAX tag filter** (POST to `wp-admin/admin-ajax.php?action=bwg_frontend_data`
-   with a tag ID) — used by `crawl --tag-id N`. Faithful to the site's tag
-   taxonomy but more fragile, since it depends on the plugin's internal form
-   schema. If the AJAX response shape changes, fall back to client-side
-   filtering.
+1. **Server-rendered pagination** (`?page_number_0=N`) — reliable, plain HTML.
+   Used by the default `crawl` and by `--client-filter`.
+2. **AJAX tag filter** (POST to `wp-admin/admin-ajax.php?action=bwg_frontend_data`)
+   — used when any of `--tag` / `--tag-id` / `--tag-prefix` is given. Faithful
+   to the site's tag taxonomy. If the AJAX response shape ever changes, fall
+   back to `--client-filter`.
 
-Most game-level questions ("just download Cyberpunk shots") are equally well
-served by either mode, since the game name shows up in both the URL path and
-the alt text. Tags like `favorite`, `4k`, `Black and White`, or fine-grained
-SC ship variants only exist in the server-side tag system, so use
-`--tag-id` for those.
+Most game-level questions are equally well served by either mode (the game
+name shows up in both URL and alt text). Tags like `favorite`, `4k`,
+`Black and White`, or fine-grained SC ship variants only exist in the
+server-side tag system, so use `--tag` / `--tag-id` / `--tag-prefix` for
+those.
 
 ## Be polite
 
-The script defaults to a 0.5s delay between requests and retries with
-exponential backoff on 5xx / network errors. Bump `--delay` higher if you're
-doing a full crawl.
+Defaults: 0.5s delay between requests, exponential-backoff retries on 5xx /
+network errors, real User-Agent. Bump `--delay` higher for full crawls.

@@ -9,6 +9,9 @@ Usage:
     python scrape_hasgaha.py download --tag "Cyberpunk 2077"
     python scrape_hasgaha.py download --game RDR2 --limit 10
 
+    # The "Star Citizen + every SC-prefixed tag" recipe:
+    python scrape_hasgaha.py download --tag "Star Citizen" --tag-prefix "SC"
+
 Permission: site owner permits download/use with credit + link back to hasgaha.com.
 See ATTRIBUTION.md.
 """
@@ -75,13 +78,20 @@ def load_tags() -> dict[str, int]:
     return json.loads(TAGS_FILE.read_text())["tags"]
 
 
-def resolve_tag_id(tag: str | None, tag_id: int | None, tags: dict[str, int]) -> int | None:
-    if tag_id is not None:
-        return tag_id
-    if tag is None:
-        return None
+def _split_csv(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    out: list[str] = []
+    for v in values:
+        out.extend(p.strip() for p in v.split(",") if p.strip())
+    return out
+
+
+def resolve_one_tag(tag: str, tags: dict[str, int]) -> int:
     if tag in tags:
         return tags[tag]
+    if tag.isdigit():
+        return int(tag)
     matches = [name for name in tags if tag.lower() in name.lower()]
     if len(matches) == 1:
         print(f"Resolved --tag {tag!r} -> {matches[0]!r} (id={tags[matches[0]]})")
@@ -93,6 +103,39 @@ def resolve_tag_id(tag: str | None, tag_id: int | None, tags: dict[str, int]) ->
         + "\n  ".join(f"{tags[m]:>4}  {m}" for m in matches[:25])
         + "\nUse --tag-id N for an exact match, or pass the full tag name."
     )
+
+
+def resolve_tag_ids(
+    tag: list[str] | None,
+    tag_id: list[str] | None,
+    tag_prefix: list[str] | None,
+    tags: dict[str, int],
+) -> list[tuple[int, str]]:
+    """Returns a list of (id, name) tuples covering every tag selected by the
+    user. Names are unique; the order matches the order specified."""
+    name_for_id = {v: k for k, v in tags.items()}
+    out: dict[int, str] = {}
+
+    for raw_id in _split_csv(tag_id):
+        try:
+            tid = int(raw_id)
+        except ValueError:
+            sys.exit(f"Invalid --tag-id value: {raw_id!r}")
+        out.setdefault(tid, name_for_id.get(tid, f"id={tid}"))
+
+    for t in _split_csv(tag):
+        tid = resolve_one_tag(t, tags)
+        out.setdefault(tid, name_for_id.get(tid, t))
+
+    for prefix in _split_csv(tag_prefix):
+        matches = [(tid, name) for name, tid in tags.items() if name.startswith(prefix)]
+        if not matches:
+            sys.exit(f"No tags start with {prefix!r}.")
+        print(f"--tag-prefix {prefix!r} matched {len(matches)} tag(s)")
+        for tid, name in matches:
+            out.setdefault(tid, name)
+
+    return list(out.items())
 
 
 def make_session() -> requests.Session:
@@ -208,36 +251,41 @@ def crawl_paginated(
     return images
 
 
-def crawl_via_ajax_tag(
+def crawl_via_ajax_tags(
     session: requests.Session,
-    tag_id: int,
+    tag_ids: list[int],
     *,
     delay: float,
     max_pages: int | None,
 ) -> list[GalleryImage]:
-    print(f"Tag-filtered crawl via AJAX (tag_id={tag_id})")
+    print(f"Tag-filtered crawl via AJAX (tag_ids={tag_ids})")
     get_with_retry(session, BASE_URL)
+
+    block = GALLERY_FORM_DEFAULTS["block_id"]
+    view = GALLERY_FORM_DEFAULTS["current_view"]
+    tag_field = f"bwg_tag_id_{block}[]"
 
     all_images: list[GalleryImage] = []
     page = 1
     while True:
-        data = {
-            "action": "bwg_frontend_data",
-            "shortcode_id": GALLERY_FORM_DEFAULTS["shortcode_id"],
-            "gallery_type": GALLERY_FORM_DEFAULTS["gallery_type"],
-            "gallery_id": GALLERY_FORM_DEFAULTS["gallery_id"],
-            "album_gallery_id": GALLERY_FORM_DEFAULTS["album_gallery_id"],
-            "tag": GALLERY_FORM_DEFAULTS["default_tag"],
-            "theme_id": GALLERY_FORM_DEFAULTS["theme_id"],
-            "type": GALLERY_FORM_DEFAULTS["type"],
-            "current_view": GALLERY_FORM_DEFAULTS["current_view"],
-            "cur_gal_id": GALLERY_FORM_DEFAULTS["block_id"],
-            "form_id": "gal_front_form_0",
-            f"bwg_tag_id_{GALLERY_FORM_DEFAULTS['block_id']}[]": str(tag_id),
-            f"bwg_search_{GALLERY_FORM_DEFAULTS['current_view']}": "",
-            f"page_number_{GALLERY_FORM_DEFAULTS['current_view']}": str(page),
-            "current_url": GALLERY_FORM_DEFAULTS["current_url"],
-        }
+        data: list[tuple[str, str]] = [
+            ("action", "bwg_frontend_data"),
+            ("shortcode_id", GALLERY_FORM_DEFAULTS["shortcode_id"]),
+            ("gallery_type", GALLERY_FORM_DEFAULTS["gallery_type"]),
+            ("gallery_id", GALLERY_FORM_DEFAULTS["gallery_id"]),
+            ("album_gallery_id", GALLERY_FORM_DEFAULTS["album_gallery_id"]),
+            ("tag", GALLERY_FORM_DEFAULTS["default_tag"]),
+            ("theme_id", GALLERY_FORM_DEFAULTS["theme_id"]),
+            ("type", GALLERY_FORM_DEFAULTS["type"]),
+            ("current_view", view),
+            ("cur_gal_id", block),
+            ("form_id", "gal_front_form_0"),
+            (f"bwg_search_{view}", ""),
+            (f"page_number_{view}", str(page)),
+            ("current_url", GALLERY_FORM_DEFAULTS["current_url"]),
+        ]
+        for tid in tag_ids:
+            data.append((tag_field, str(tid)))
         headers = {
             "Referer": BASE_URL,
             "X-Requested-With": "XMLHttpRequest",
@@ -278,7 +326,7 @@ def crawl_via_ajax_tag(
 def filter_images(
     images: list[GalleryImage],
     *,
-    tag_substring: str | None,
+    tag_substrings: list[str],
     game: str | None,
     alt_contains: str | None,
 ) -> list[GalleryImage]:
@@ -286,15 +334,30 @@ def filter_images(
     if game:
         g = game.lower()
         out = [i for i in out if g in i.game.lower()]
-    if tag_substring:
-        t = tag_substring.lower()
+    if tag_substrings:
+        needles = [t.lower() for t in tag_substrings if t]
         out = [
             i for i in out
-            if t in i.alt.lower() or t in i.title.lower() or t in i.full_url.lower()
+            if any(
+                n in i.alt.lower() or n in i.title.lower() or n in i.full_url.lower()
+                for n in needles
+            )
         ]
     if alt_contains:
         a = alt_contains.lower()
         out = [i for i in out if a in i.alt.lower()]
+    return out
+
+
+def dedupe_by_id(images: list[GalleryImage]) -> list[GalleryImage]:
+    seen: set[str] = set()
+    out: list[GalleryImage] = []
+    for i in images:
+        key = i.image_id or i.full_url
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(i)
     return out
 
 
@@ -344,24 +407,29 @@ def write_manifest(images: list[GalleryImage], path: Path, filter_desc: str) -> 
 
 def cmd_crawl(args: argparse.Namespace) -> None:
     tags = load_tags()
-    tag_id = resolve_tag_id(args.tag, args.tag_id, tags)
+    selected = resolve_tag_ids(args.tag, args.tag_id, args.tag_prefix, tags)
+    tag_substrings = _split_csv(args.tag) + [name for _, name in selected]
     session = make_session()
 
-    if tag_id is not None and not args.client_filter:
-        images = crawl_via_ajax_tag(session, tag_id, delay=args.delay, max_pages=args.max_pages)
-        filter_desc = f"server-side tag_id={tag_id}"
+    if selected and not args.client_filter:
+        ids = [tid for tid, _ in selected]
+        names = [name for _, name in selected]
+        print(f"Selected {len(selected)} tag(s): {', '.join(names)}")
+        images = crawl_via_ajax_tags(session, ids, delay=args.delay, max_pages=args.max_pages)
+        images = dedupe_by_id(images)
+        filter_desc = f"server-side tag_ids={ids} ({', '.join(names)})"
     else:
         images = crawl_paginated(session, delay=args.delay, max_pages=args.max_pages)
-        if args.tag or args.game or args.alt_contains:
+        if tag_substrings or args.game or args.alt_contains:
             images = filter_images(
                 images,
-                tag_substring=args.tag,
+                tag_substrings=tag_substrings,
                 game=args.game,
                 alt_contains=args.alt_contains,
             )
         filter_desc_parts = []
-        if args.tag:
-            filter_desc_parts.append(f"tag_substring={args.tag!r}")
+        if tag_substrings:
+            filter_desc_parts.append(f"tag_substrings={tag_substrings}")
         if args.game:
             filter_desc_parts.append(f"game={args.game!r}")
         if args.alt_contains:
@@ -379,9 +447,12 @@ def cmd_download(args: argparse.Namespace) -> None:
     images = [GalleryImage(**i) for i in payload["images"]]
 
     if not args.skip_filter:
+        tags = load_tags()
+        selected = resolve_tag_ids(args.tag, args.tag_id, args.tag_prefix, tags)
+        tag_substrings = _split_csv(args.tag) + [name for _, name in selected]
         images = filter_images(
             images,
-            tag_substring=args.tag,
+            tag_substrings=tag_substrings,
             game=args.game,
             alt_contains=args.alt_contains,
         )
@@ -416,11 +487,15 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--manifest", type=Path, default=MANIFEST_DEFAULT)
     common.add_argument("--delay", type=float, default=0.5, help="Seconds between requests (default: 0.5)")
     common.add_argument("--max-pages", type=int, default=None, help="Stop after N pages (testing)")
-    common.add_argument("--tag", help="Tag name (or substring). Resolved against tags.json for AJAX mode, used as alt/title/URL substring otherwise.")
-    common.add_argument("--tag-id", type=int, help="Numeric tag ID (overrides --tag for AJAX mode)")
+    common.add_argument("--tag", action="append", default=None, metavar="NAME",
+                        help="Tag name (repeatable, comma-sep ok). Resolved against tags.json. Multiple tags = OR.")
+    common.add_argument("--tag-id", action="append", default=None, metavar="ID",
+                        help="Numeric tag ID (repeatable, comma-sep ok)")
+    common.add_argument("--tag-prefix", action="append", default=None, metavar="PREFIX",
+                        help='Select every tag whose name starts with PREFIX, case-sensitive (e.g. --tag-prefix "SC")')
     common.add_argument("--game", help="Filter by game folder substring (e.g. 'RDR2', 'Star_Citizen')")
     common.add_argument("--alt-contains", help="Filter by alt-text substring")
-    common.add_argument("--client-filter", action="store_true", help="Force pagination crawl + client-side filter even when --tag-id given")
+    common.add_argument("--client-filter", action="store_true", help="Force pagination crawl + client-side filter even when tags are given")
 
     pc = sub.add_parser("crawl", parents=[common], help="Crawl gallery and write manifest.json")
     pc.set_defaults(func=cmd_crawl)
