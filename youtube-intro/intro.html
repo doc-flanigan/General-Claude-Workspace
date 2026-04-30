@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>YouTube Intro</title>
+  <style>
+    :root {
+      --channel: "Your Channel";
+      --tagline: "Welcome back";
+      --accent: #ff3d68;
+      --accent-2: #6c5ce7;
+      --bg-1: #0b0d17;
+      --bg-2: #1a1d2e;
+      --duration: 6s;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+      color: #fff;
+    }
+
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(ellipse at center, var(--bg-2) 0%, var(--bg-1) 70%, #000 100%);
+      overflow: hidden;
+    }
+
+    .stage::before,
+    .stage::after {
+      content: "";
+      position: absolute;
+      width: 60vmax;
+      height: 60vmax;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.55;
+      mix-blend-mode: screen;
+      animation: drift 7s ease-in-out infinite alternate;
+    }
+    .stage::before {
+      background: var(--accent);
+      top: -20vmax;
+      left: -20vmax;
+    }
+    .stage::after {
+      background: var(--accent-2);
+      bottom: -20vmax;
+      right: -20vmax;
+      animation-delay: -3s;
+    }
+
+    @keyframes drift {
+      0%   { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(8vmax, 6vmax) scale(1.15); }
+    }
+
+    .grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+      animation: gridShift 12s linear infinite;
+    }
+
+    @keyframes gridShift {
+      from { background-position: 0 0; }
+      to   { background-position: 64px 64px; }
+    }
+
+    .content {
+      position: relative;
+      text-align: center;
+      z-index: 2;
+      padding: 0 6vw;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      font-size: clamp(11px, 1.1vw, 14px);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.8s 0.3s ease-out forwards;
+    }
+
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1);   opacity: 1;   }
+      50%      { transform: scale(1.4); opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: clamp(48px, 9vw, 160px);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-top: 24px;
+      background: linear-gradient(120deg, #fff 30%, var(--accent) 60%, var(--accent-2) 90%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      background-size: 200% 100%;
+      animation: shimmer 3s ease-in-out infinite, dropIn 1s 0.6s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    @keyframes dropIn {
+      from { opacity: 0; transform: translateY(40px) scale(0.96); filter: blur(8px); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0);   }
+    }
+
+    .tagline {
+      margin-top: 18px;
+      font-size: clamp(16px, 2vw, 26px);
+      color: rgba(255,255,255,0.8);
+      letter-spacing: 0.04em;
+      opacity: 0;
+      animation: fadeUp 0.9s 1.4s ease-out forwards;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .bar {
+      margin: 36px auto 0;
+      width: min(420px, 60vw);
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      opacity: 0;
+      animation: fadeUp 0.6s 1.8s ease-out forwards;
+    }
+    .bar > span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      animation: fill 2.4s 1.9s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+
+    @keyframes fill {
+      from { width: 0%; }
+      to   { width: 100%; }
+    }
+
+    .flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      animation: flash 0.7s 4.5s ease-out forwards;
+    }
+    @keyframes flash {
+      0%   { opacity: 0; }
+      30%  { opacity: 0.85; }
+      100% { opacity: 0; }
+    }
+
+    .stage {
+      animation: zoomOut var(--duration) ease-in-out forwards;
+    }
+    @keyframes zoomOut {
+      0%   { transform: scale(1.04); }
+      80%  { transform: scale(1);    }
+      100% { transform: scale(1.08); opacity: 0; }
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+      font-size: 13px;
+      opacity: 0.6;
+    }
+    .controls button {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.18);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .controls button:hover { background: rgba(255,255,255,0.16); }
+
+    @media print { .controls { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="grid"></div>
+    <div class="content">
+      <div class="badge"><span class="dot"></span><span id="badgeText">NEW EPISODE</span></div>
+      <h1 id="channel">Your Channel</h1>
+      <p class="tagline" id="tagline">Welcome back. Let's build something.</p>
+      <div class="bar"><span></span></div>
+    </div>
+    <div class="flash"></div>
+  </div>
+
+  <div class="controls">
+    <button onclick="location.reload()">Replay</button>
+    <button onclick="customize()">Edit text</button>
+  </div>
+
+  <script>
+    // Read ?channel=...&tagline=...&badge=... from URL for quick customization.
+    const params = new URLSearchParams(location.search);
+    const set = (id, val) => { if (val) document.getElementById(id).textContent = val; };
+    set("channel", params.get("channel"));
+    set("tagline", params.get("tagline"));
+    set("badgeText", params.get("badge"));
+
+    function customize() {
+      const channel = prompt("Channel name:", document.getElementById("channel").textContent);
+      if (channel === null) return;
+      const tagline = prompt("Tagline:", document.getElementById("tagline").textContent);
+      if (tagline === null) return;
+      const u = new URL(location.href);
+      u.searchParams.set("channel", channel);
+      u.searchParams.set("tagline", tagline);
+      location.href = u.toString();
+    }
+  </script>
+</body>
+</html>
