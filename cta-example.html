@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SC Portfolio – Enlist Now</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0a0e1a;
+      color: #c8d6e5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      gap: 2rem;
+      text-align: center;
+    }
+
+    h1 { color: #57b9e4; margin: 0; }
+    p  { max-width: 520px; line-height: 1.6; margin: 0; }
+
+    /* CTA button style — copy this class to your own pages */
+    .cta-btn {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      background: #57b9e4;
+      color: #0a0e1a;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cta-btn:hover { background: #3ea3cc; }
+  </style>
+</head>
+<body>
+
+  <h1>Join Star Citizen</h1>
+  <p>Use the button below to enlist and receive a bonus 5,000 UEC when you purchase a game package.</p>
+
+  <!--
+    Add  data-referral-cta  to any <a> or <button> you want wired up.
+    referral-rotator.js fills in the href automatically on page load.
+  -->
+  <a class="cta-btn" data-referral-cta href="#">Enlist Now</a>
+
+  <!-- You can have multiple CTA buttons — all get the same code per page visit -->
+  <a class="cta-btn" data-referral-cta href="#">Sign Up &amp; Claim Bonus</a>
+
+  <!-- Load the rotator — place just before </body> on every page that has CTAs -->
+  <script src="referral-rotator.js"></script>
+</body>
+</html>
