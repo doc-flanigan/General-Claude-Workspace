@@ -11,6 +11,7 @@
 const REFERRAL_CODES = [
   'STAR-GCQJ-N6NC', // Your code
   'STAR-CLXM-7VNH', // Jake's code
+  'STAR-RXW4-JPN3', // Third code
 ];
 
 const BASE_URL = 'https://www.robertsspaceindustries.com/enlist?referral=';
