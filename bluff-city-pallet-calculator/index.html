@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluff City Pallet &mdash; Instant Quote Calculator</title>
+  <style>
+    :root {
+      --navy:    #14233b;
+      --navy-2:  #1d3354;
+      --steel:   #2c4a6e;
+      --ember:   #e07a2f;   /* Bluff City accent */
+      --ember-d: #c4641d;
+      --paper:   #f4f1ea;
+      --line:    #d9d2c4;
+      --ink:     #233044;
+      --muted:   #6b7686;
+      --good:    #2f8f63;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      background: linear-gradient(135deg, var(--navy), var(--navy-2));
+      color: #fff;
+      padding: 1.4rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 4px solid var(--ember);
+    }
+    .logo {
+      width: 52px; height: 52px; flex: none;
+      border-radius: 8px;
+      background: var(--ember);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 1.5rem; color: var(--navy);
+      box-shadow: inset 0 0 0 3px rgba(0,0,0,.15);
+    }
+    header h1 { margin: 0; font-size: 1.35rem; letter-spacing: .3px; }
+    header .tag { margin: 0; font-size: .8rem; color: #9fb2cc; letter-spacing: 2px; text-transform: uppercase; }
+
+    /* ---------- Layout ---------- */
+    .wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .demo-note {
+      background: #fff7ed; border: 1px solid #f3d6b3; color: #8a5a23;
+      border-radius: 8px; padding: .6rem .9rem; font-size: .82rem; margin-bottom: 1.25rem;
+    }
+
+    .tabs { display: flex; gap: .4rem; margin-bottom: 1rem; }
+    .tab {
+      border: 1px solid var(--line); background: #fff; color: var(--muted);
+      padding: .55rem 1.1rem; border-radius: 8px 8px 0 0; cursor: pointer;
+      font-weight: 600; font-size: .9rem;
+    }
+    .tab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+    .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.25rem; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 10px;
+      padding: 1.25rem; box-shadow: 0 1px 2px rgba(20,35,59,.04);
+    }
+    .card h2 { margin: 0 0 1rem; font-size: 1rem; color: var(--navy); }
+
+    label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted);
+      margin: 0 0 .3rem; text-transform: uppercase; letter-spacing: .5px; }
+    .field { margin-bottom: 1rem; }
+    select, input[type=number] {
+      width: 100%; padding: .6rem .7rem; font-size: 1rem;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    select:focus, input:focus { outline: 2px solid var(--ember); border-color: var(--ember); }
+
+    .seg { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .seg button {
+      flex: 1 1 auto; padding: .55rem .4rem; border: 1px solid var(--line);
+      background: #fff; border-radius: 7px; cursor: pointer; font-size: .85rem; font-weight: 600;
+      color: var(--ink);
+    }
+    .seg button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .seg button small { display: block; font-weight: 400; font-size: .7rem; opacity: .8; }
+
+    .check { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--ink);
+      text-transform: none; letter-spacing: 0; font-weight: 500; cursor: pointer; }
+    .check input { width: auto; }
+
+    /* ---------- Result panel ---------- */
+    .result h2 { color: var(--navy); }
+    .line { display: flex; justify-content: space-between; padding: .45rem 0;
+      border-bottom: 1px dashed var(--line); font-size: .92rem; }
+    .line span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .total {
+      margin-top: .9rem; padding: 1rem; border-radius: 10px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff;
+    }
+    .total .big { font-size: 2rem; font-weight: 800; letter-spacing: .5px;
+      font-variant-numeric: tabular-nums; }
+    .total .sub { font-size: .8rem; color: #9fb2cc; }
+    .savings { margin-top: .8rem; background: #eaf6ef; border: 1px solid #bfe3cd;
+      color: var(--good); padding: .6rem .8rem; border-radius: 8px; font-size: .85rem; font-weight: 600; }
+    .savings.hide { display: none; }
+
+    .cta {
+      display: block; width: 100%; margin-top: 1rem; text-align: center;
+      padding: .8rem; background: var(--ember); color: #fff; border: none; border-radius: 8px;
+      font-weight: 700; font-size: 1rem; cursor: pointer; text-decoration: none;
+    }
+    .cta:hover { background: var(--ember-d); }
+
+    footer { text-align: center; color: var(--muted); font-size: .78rem; padding: 1.5rem; }
+
+    .hint { font-size: .75rem; color: var(--muted); margin-top: .3rem; }
+    .pane { display: none; }
+    .pane.active { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">BC</div>
+    <div>
+      <p class="tag">Bluff City Pallet &middot; Memphis, TN</p>
+      <h1>Instant Quote Calculator</h1>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="demo-note">
+      <strong>Partner demo.</strong> Pricing below is illustrative sample data wired into the
+      calculator so the logic is easy to see. Real rate cards drop straight into the
+      <code>PRICING</code> table at the top of the script.
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="quote">Order Quote</button>
+      <button class="tab" data-tab="load">Truckload Estimator</button>
+    </div>
+
+    <!-- ============ QUOTE TAB ============ -->
+    <div class="pane active" id="pane-quote">
+      <div class="grid">
+        <div class="card">
+          <h2>Build your order</h2>
+
+          <div class="field">
+            <label>Pallet size</label>
+            <select id="size">
+              <option value="48x40">48&Prime; &times; 40&Prime; &mdash; GMA Standard</option>
+              <option value="48x48">48&Prime; &times; 48&Prime; &mdash; Drum / Chemical</option>
+              <option value="42x42">42&Prime; &times; 42&Prime; &mdash; Beverage</option>
+              <option value="36x36">36&Prime; &times; 36&Prime; &mdash; Compact</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Grade / condition</label>
+            <div class="seg" id="grade">
+              <button class="on" data-grade="new">New<small>Built fresh</small></button>
+              <button data-grade="a">Grade A<small>Recycled, premium</small></button>
+              <button data-grade="b">Grade B<small>Recycled, value</small></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Quantity (pallets)</label>
+            <input type="number" id="qty" min="1" step="1" value="200" />
+            <div class="hint">Volume breaks apply automatically at 500, 1,000 and 2,500 units.</div>
+          </div>
+
+          <div class="field">
+            <label>Add-ons</label>
+            <label class="check"><input type="checkbox" id="heat" /> Heat treatment &mdash; ISPM-15 stamp for export (+$1.75/ea)</label>
+            <label class="check" style="margin-top:.45rem"><input type="checkbox" id="block" /> Block-style (4-way fork access) (+$2.50/ea)</label>
+          </div>
+
+          <div class="field">
+            <label>Delivery distance from Memphis (miles)</label>
+            <input type="number" id="miles" min="0" step="5" value="25" />
+            <div class="hint">Free delivery inside 30 miles. Pickup available at no charge.</div>
+          </div>
+        </div>
+
+        <div class="card result">
+          <h2>Your quote</h2>
+          <div class="line"><span id="lblUnit">Base unit price</span><span id="unit">&mdash;</span></div>
+          <div class="line"><span>Add-ons / unit</span><span id="addons">&mdash;</span></div>
+          <div class="line"><span id="lblQty">Pallets</span><span id="qtyOut">&mdash;</span></div>
+          <div class="line"><span>Pallet subtotal</span><span id="subtotal">&mdash;</span></div>
+          <div class="line"><span id="lblBreak">Volume discount</span><span id="discount">&mdash;</span></div>
+          <div class="line"><span>Delivery</span><span id="delivery">&mdash;</span></div>
+
+          <div class="total">
+            <div class="sub">Estimated total</div>
+            <div class="big" id="grand">$0</div>
+            <div class="sub" id="perUnit">&mdash; per pallet delivered</div>
+          </div>
+
+          <div class="savings hide" id="savingsBox"></div>
+
+          <button class="cta" id="emailBtn">Email this quote to a partner</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LOAD TAB ============ -->
+    <div class="pane" id="pane-load">
+      <div class="grid">
+        <div class="card">
+          <h2>How many fit on a truck?</h2>
+          <div class="field">
+            <label>Pallet footprint</label>
+            <select id="lsize">
+              <option value="48x40">48&Prime; &times; 40&Prime; &mdash; GMA Standard</option>
+              <option value="48x48">48&Prime; &times; 48&Prime;</option>
+              <option value="42x42">42&Prime; &times; 42&Prime;</option>
+              <option value="36x36">36&Prime; &times; 36&Prime;</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Stack height per pallet (inches)</label>
+            <input type="number" id="stackH" min="5" step="1" value="48" />
+            <div class="hint">Empty pallets stack ~6&Prime; each; loaded pallets are taller.</div>
+          </div>
+          <div class="field">
+            <label>Trailer</label>
+            <div class="seg" id="trailer">
+              <button class="on" data-t="53">53&prime; Dry Van<small>636&Prime; L</small></button>
+              <button data-t="48">48&prime; Dry Van<small>576&Prime; L</small></button>
+              <button data-t="28">28&prime; Pup<small>336&Prime; L</small></button>
+            </div>
+          </div>
+        </div>
+        <div class="card result">
+          <h2>Load plan</h2>
+          <div class="line"><span>Pallets per floor row</span><span id="perRow">&mdash;</span></div>
+          <div class="line"><span>Floor positions</span><span id="positions">&mdash;</span></div>
+          <div class="line"><span>Stack tiers (under 110&Prime;)</span><span id="tiers">&mdash;</span></div>
+          <div class="total">
+            <div class="sub">Pallets per truckload</div>
+            <div class="big" id="perTruck">0</div>
+            <div class="sub" id="loadNote">&mdash;</div>
+          </div>
+          <div class="hint" style="margin-top:.8rem">
+            Estimate assumes square placement and a standard 100&Prime;&times;110&Prime; usable
+            interior. Real loads vary with weight limits and product overhang.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Bluff City Pallet &mdash; New &amp; recycled pallets, custom builds, and pickup/recycling.
+    Memphis, TN &middot; This is an interactive sales demo, not a binding quote.
+  </footer>
+
+  <script>
+  /* =========================================================================
+     PRICING  —  swap these numbers for Bluff City's real rate card.
+     Base price is per pallet, by size and grade.
+     ========================================================================= */
+  const PRICING = {
+    "48x40": { label: '48"×40" GMA',     new: 14.50, a: 9.25, b: 6.50, weight: 45 },
+    "48x48": { label: '48"×48" Drum',    new: 17.00, a: 11.00, b: 7.75, weight: 55 },
+    "42x42": { label: '42"×42" Beverage', new: 15.25, a: 9.75, b: 6.90, weight: 48 },
+    "36x36": { label: '36"×36" Compact',  new: 11.75, a: 7.50, b: 5.40, weight: 32 },
+  };
+  const ADDONS = { heat: 1.75, block: 2.50 };
+  // Volume breaks: discount % applied to pallet subtotal at/above each threshold.
+  const BREAKS = [
+    { min: 2500, pct: 0.12 },
+    { min: 1000, pct: 0.08 },
+    { min: 500,  pct: 0.04 },
+    { min: 0,    pct: 0.00 },
+  ];
+  const FREE_MILES = 30;
+  const PER_MILE   = 3.25;   // round-trip delivery surcharge per mile beyond free zone
+
+  const $ = id => document.getElementById(id);
+  const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money0 = n => '$' + Math.round(n).toLocaleString('en-US');
+
+  let grade = 'new';
+
+  /* ---------- Tabs ---------- */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    $('pane-' + t.dataset.tab).classList.add('active');
+  }));
+
+  /* ---------- Grade selector ---------- */
+  document.querySelectorAll('#grade button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#grade button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    grade = b.dataset.grade;
+    calcQuote();
+  }));
+
+  /* ---------- Quote calculation ---------- */
+  function calcQuote() {
+    const size = $('size').value;
+    const p = PRICING[size];
+    const qty = Math.max(0, parseInt($('qty').value) || 0);
+    const miles = Math.max(0, parseFloat($('miles').value) || 0);
+
+    const base = p[grade];
+    let addonPer = 0;
+    if ($('heat').checked)  addonPer += ADDONS.heat;
+    if ($('block').checked) addonPer += ADDONS.block;
+
+    const unitTotal = base + addonPer;
+    const subtotal = unitTotal * qty;
+
+    const brk = BREAKS.find(b => qty >= b.min);
+    const discount = subtotal * brk.pct;
+
+    const billableMiles = Math.max(0, miles - FREE_MILES);
+    const delivery = billableMiles * PER_MILE;
+
+    const grand = subtotal - discount + delivery;
+    const perUnit = qty > 0 ? grand / qty : 0;
+
+    $('lblUnit').textContent = 'Base unit price (' + gradeName(grade) + ')';
+    $('unit').textContent = money(base);
+    $('addons').textContent = addonPer ? '+' + money(addonPer) : '$0.00';
+    $('qtyOut').textContent = qty.toLocaleString('en-US');
+    $('subtotal').textContent = money(subtotal);
+    $('discount').textContent = brk.pct ? '−' + money(discount) + '  (' + (brk.pct*100) + '%)' : '$0.00';
+    $('delivery').textContent = delivery ? money(delivery) : (miles <= FREE_MILES ? 'FREE' : '$0.00');
+    $('grand').textContent = money0(grand);
+    $('perUnit').textContent = money(perUnit) + ' per pallet delivered';
+
+    // Savings vs. buying everything new
+    const newUnit = p.new + addonPer;
+    const newGrand = newUnit * qty - (newUnit*qty)*brk.pct + delivery;
+    const sBox = $('savingsBox');
+    if (grade !== 'new' && qty > 0) {
+      const save = newGrand - grand;
+      sBox.classList.remove('hide');
+      sBox.textContent = 'You save ' + money0(save) + ' vs. all-new (' +
+        Math.round(save / newGrand * 100) + '% off) by choosing ' + gradeName(grade) + '.';
+    } else {
+      sBox.classList.add('hide');
+    }
+  }
+  function gradeName(g){ return g === 'new' ? 'New' : g === 'a' ? 'Grade A' : 'Grade B'; }
+
+  ['size','qty','miles','heat','block'].forEach(id => {
+    $(id).addEventListener('input', calcQuote);
+    $(id).addEventListener('change', calcQuote);
+  });
+
+  /* ---------- Email quote ---------- */
+  $('emailBtn').addEventListener('click', () => {
+    const size = PRICING[$('size').value].label;
+    const qty = $('qty').value;
+    const body = encodeURIComponent(
+      'Bluff City Pallet — Quote Request\n\n' +
+      'Pallet: ' + size + '\n' +
+      'Grade: ' + gradeName(grade) + '\n' +
+      'Quantity: ' + qty + '\n' +
+      'Heat treated: ' + ($('heat').checked ? 'Yes' : 'No') + '\n' +
+      'Block style: ' + ($('block').checked ? 'Yes' : 'No') + '\n' +
+      'Delivery distance: ' + $('miles').value + ' miles\n\n' +
+      'Estimated total: ' + $('grand').textContent + ' (' + $('perUnit').textContent + ')\n'
+    );
+    window.location.href = 'mailto:sales@bluffcitypallet.com?subject=' +
+      encodeURIComponent('Pallet quote — ' + qty + ' × ' + size) + '&body=' + body;
+  });
+
+  /* ---------- Truckload estimator ---------- */
+  let trailerLen = 636; // 53'
+  const USABLE_W = 100;     // interior width inches
+  const MAX_H    = 110;     // interior stack height inches
+  document.querySelectorAll('#trailer button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#trailer button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    trailerLen = ({ '53':636, '48':576, '28':336 })[b.dataset.t];
+    calcLoad();
+  }));
+
+  function calcLoad() {
+    const [w, d] = $('lsize').value.split('x').map(Number);  // e.g. 48 x 40
+    const stackH = Math.max(1, parseFloat($('stackH').value) || 1);
+
+    // Try both orientations across the 100" width; pick the one that fits more floor positions.
+    function positionsFor(pw, pd) {
+      const perRow = Math.floor(USABLE_W / pw);
+      const rows   = Math.floor(trailerLen / pd);
+      return { perRow, rows, total: perRow * rows };
+    }
+    const optA = positionsFor(w, d);
+    const optB = positionsFor(d, w);
+    const best = optB.total > optA.total ? optB : optA;
+
+    const tiers = Math.max(1, Math.floor(MAX_H / stackH));
+    const perTruck = best.total * tiers;
+
+    $('perRow').textContent = best.perRow + ' across';
+    $('positions').textContent = best.total + ' (' + best.perRow + ' × ' + best.rows + ')';
+    $('tiers').textContent = tiers + (tiers === 1 ? ' tier' : ' tiers');
+    $('perTruck').textContent = perTruck.toLocaleString('en-US');
+    $('loadNote').textContent = best.rows + ' rows deep · ' + stackH + '" stacks · ' +
+      (trailerLen/12).toFixed(0) + "' trailer";
+  }
+  ['lsize','stackH'].forEach(id => {
+    $(id).addEventListener('input', calcLoad);
+    $(id).addEventListener('change', calcLoad);
+  });
+
+  /* ---------- Init ---------- */
+  calcQuote();
+  calcLoad();
+  </script>
+</body>
+</html>
